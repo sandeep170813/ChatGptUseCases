@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        
+        stage('Checkout Code') {
+            steps {
+                git 'https://github.com/your-username/your-repo.git'
+                // Replace the URL with your actual GitHub repository URL
+            }
+        }
+        
+        stage('Build with Maven') {
+            steps {
+                script {
+                    // Ensure Maven is installed and available in the PATH
+                    def mvnHome = tool 'Maven'
+                    def mavenCMD = "${mvnHome}/bin/mvn"
+                    
+                    // Maven build command
+                    sh "${mavenCMD} clean install"
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo 'Build succeeded! Do additional steps here if needed.'
+        }
+        failure {
+            echo 'Build failed! Handle failure scenarios here.'
+        }
+    }
+}

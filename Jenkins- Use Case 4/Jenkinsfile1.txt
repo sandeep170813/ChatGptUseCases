@@ -1,0 +1,86 @@
+pipeline {  
+
+    agent {  
+
+        label 'SLAVE01'  
+
+    }  
+
+    options {  
+
+        buildDiscarder(logRotator(numToKeepStr: '10',  
+            artifactNumToKeepStr: '10', daysToKeepStr: '15'))  
+
+        timestamps()  
+
+    }  
+
+    tools {  
+
+        maven 'M3'  
+
+    }  
+
+    environment {  
+
+        app_name = "test-app"  
+
+        env = "test"  
+
+    }  
+
+    stages {  
+
+        stage('Cleanup') {  
+
+            steps {  
+
+                echo 'Cleaning workspace...'  
+
+                cleanWs()  
+
+            }  
+
+        }   
+
+        stage('Checkout') {  
+
+            steps {  
+
+                git branch: 'master',  
+
+                     url: 'https://github.com/SrikanthNani/spring-framework-petclinic.git',  
+
+                     dir: 'app'  
+
+            }  
+
+        }  
+
+        stage('Build') {  
+
+            steps {  
+
+                sh 'mvn clean install -DskipTests -f app/pom.xml'  
+
+            }  
+
+        }   
+
+        stage('Print Global Variables') {  
+
+            steps {  
+
+                script {  
+
+                    echo "Environment variables: ${env}"  
+
+                }  
+
+            }  
+
+        }  
+
+    }  
+
+}  

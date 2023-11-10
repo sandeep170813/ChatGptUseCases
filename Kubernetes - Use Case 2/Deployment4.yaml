@@ -1,0 +1,25 @@
+kind: Deployment
+metadata:
+  name: {{ deployment_name }}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: {{ deployment_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ deployment_name }}
+    spec:
+      containers:
+      - name: {{ deployment_name }}
+        image: {{ container_image }}:latest
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "{{cpu_limit}}"
+            memory: "{{memory_limit}}"
+          requests:
+            cpu: "{{cpu_request}}"
+            memory: "{{memory_request}}"
