@@ -1,0 +1,135 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+stages:
+Stage: code build and checkout
+jobs:
+- job: BuildAndTest
+  displayName: 'Build and Test'
+  steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '14.x'
+    displayName: 'Install Node.js'
+
+  - script: |
+      npm install
+    displayName: 'Install dependencies'
+
+  - script: |
+      npm run lint
+    displayName: 'Run ESLint for code quality'
+
+  - script: |
+      npm test
+    displayName: 'Run tests'
+
+
+
+- stage: SonarQube
+  jobs:
+  - job: SonarQubeAnalysis
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '3.1.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+      displayName: 'Install .NET Core SDK'
+
+    - script: |
+        # Other necessary setup steps for your project
+        dotnet restore
+        dotnet build
+        dotnet test
+
+        # SonarQube analysis
+        dotnet sonarscanner begin /k:"YourProjectKey" /d:sonar.host.url="http://your-sonarqube-server" /d:sonar.login="YourSonarQubeToken"
+        dotnet sonarscanner end /d:sonar.login="YourSonarQubeToken"
+      displayName: 'Run SonarQube Analysis'
+
+- stage: FortifyCodeQuality
+  jobs:
+  - job: FortifyCodeQualityCheck
+    pool:
+      vmImage: 'windows-latest'  # Fortify may require Windows environment
+    steps:
+    - task: DownloadSecureFile@1
+      name: fortifyZip
+      displayName: 'Download Fortify Zip'
+      inputs:
+        secureFile: 'fortify.zip'
+
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: '$(Agent.TempDirectory)/fortify.zip'
+        destinationFolder: '$(Agent.TempDirectory)/fortify'
+      displayName: 'Extract Fortify files'
+
+    - script: |
+        # Run Fortify code quality checks
+        # Adjust the commands based on your Fortify setup
+        cd $(Agent.TempDirectory)/fortify
+        fortifycli -scan -f project.fpr -b MyBuild
+      displayName: 'Run Fortify Code Quality Checks'
+
+- stage: CodeCoverage
+  jobs:
+  - job: CodeCoverage
+    pool:
+      vmImage: 'windows-latest'  # Choose the appropriate image for your code coverage tool
+    steps:
+    - script: |
+        # Run code coverage tool (e.g., Coverlet for .NET)
+        # Adjust the commands based on your code coverage setup
+        dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+      displayName: 'Run Code Coverage'
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'cobertura'
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.opencover.xml'
+        reportDirectory: '$(Build.SourcesDirectory)/CodeCoverage'
+        failIfCoverageEmpty: false
+      displayName: 'Publish Code Coverage Results'
+
+- stage: AutomationTesting
+  jobs:
+  - job: RunAutomatedTests
+    pool:
+      vmImage: 'windows-latest'  # Choose the appropriate image for your testing framework
+    steps:
+    - script: |
+        # Run your automation tests
+        # Adjust the commands based on your testing framework and project setup
+        npm install
+        npm test
+      displayName: 'Run Automation Tests'
+
+- stage: DownloadArtifacts
+  jobs:
+  - job: DownloadBuildArtifacts
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'specific'
+        project: 'YourProjectName'
+        pipeline: 1  # Specify the pipeline ID from which to download artifacts
+        branchName: 'main'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(Build.ArtifactStagingDirectory)'
+      displayName: 'Download Build Artifacts'
+
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/Artifacts'
+      displayName: 'Copy Artifacts to Artifacts folder'
